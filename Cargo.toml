@@ -1,0 +1,75 @@
+[package]
+name = "sentinel-agent-bot-management"
+version = "0.1.0"
+edition = "2021"
+authors = ["Raskell <hello@raskell.io>"]
+description = "Bot detection and management agent for Sentinel proxy"
+license = "Apache-2.0"
+repository = "https://github.com/raskell-io/sentinel-agent-bot-management"
+keywords = ["sentinel", "proxy", "agent", "bot", "security"]
+categories = ["network-programming", "web-programming"]
+readme = "README.md"
+
+[dependencies]
+# Sentinel SDK
+sentinel-agent-sdk = { git = "https://github.com/raskell-io/sentinel-agent-rust-sdk.git", branch = "main" }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Concurrent data structures
+dashmap = "6"
+
+# User-Agent parsing
+woothee = "0.13"
+
+# Pattern matching
+regex = "1"
+
+# IP network parsing
+ipnet = "2"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# YAML config parsing
+serde_yaml = "0.9"
+
+# Cryptography for challenge tokens
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
+# DNS lookups for bot verification
+trust-dns-resolver = "0.23"
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"
+sentinel-agent-protocol = { git = "https://github.com/raskell-io/sentinel.git", branch = "main" }
+
+[[bin]]
+name = "sentinel-agent-bot-management"
+path = "src/main.rs"
+
+[lib]
+name = "sentinel_agent_bot_management"
+path = "src/lib.rs"

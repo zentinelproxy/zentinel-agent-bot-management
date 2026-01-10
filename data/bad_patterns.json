@@ -1,0 +1,62 @@
+[
+  {
+    "pattern": "(?i)sqlmap",
+    "reason": "security_scanner_sqlmap",
+    "score": 95
+  },
+  {
+    "pattern": "(?i)nikto",
+    "reason": "security_scanner_nikto",
+    "score": 95
+  },
+  {
+    "pattern": "(?i)nessus",
+    "reason": "security_scanner_nessus",
+    "score": 90
+  },
+  {
+    "pattern": "(?i)masscan",
+    "reason": "port_scanner_masscan",
+    "score": 90
+  },
+  {
+    "pattern": "(?i)zgrab",
+    "reason": "security_scanner_zgrab",
+    "score": 85
+  },
+  {
+    "pattern": "(?i)gobuster",
+    "reason": "directory_scanner_gobuster",
+    "score": 85
+  },
+  {
+    "pattern": "(?i)dirbuster",
+    "reason": "directory_scanner_dirbuster",
+    "score": 85
+  },
+  {
+    "pattern": "(?i)nuclei",
+    "reason": "vulnerability_scanner_nuclei",
+    "score": 90
+  },
+  {
+    "pattern": "(?i)wfuzz",
+    "reason": "fuzzer_wfuzz",
+    "score": 85
+  },
+  {
+    "pattern": "(?i)hydra",
+    "reason": "brute_forcer_hydra",
+    "score": 95
+  },
+  {
+    "pattern": "(?i)scrapy",
+    "reason": "scraper_scrapy",
+    "score": 70
+  },
+  {
+    "pattern": "(?i)httrack",
+    "reason": "site_copier_httrack",
+    "score": 75
+  }
+]
