@@ -12,7 +12,7 @@ readme = "README.md"
 
 [dependencies]
 # Sentinel SDK
-sentinel-agent-sdk = { git = "https://github.com/raskell-io/sentinel-agent-rust-sdk.git", branch = "main" }
+sentinel-agent-sdk = "0.1"
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
