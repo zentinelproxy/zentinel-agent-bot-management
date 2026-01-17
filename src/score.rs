@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Bot category classification.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BotCategory {
     /// Likely a human user
@@ -25,6 +25,7 @@ pub enum BotCategory {
     /// Headless browser (Puppeteer, Selenium, etc.)
     HeadlessBrowser,
     /// Unknown/unclassified
+    #[default]
     Unknown,
 }
 
@@ -61,11 +62,6 @@ impl BotCategory {
     }
 }
 
-impl Default for BotCategory {
-    fn default() -> Self {
-        BotCategory::Unknown
-    }
-}
 
 /// Individual signal scores from each detector.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -149,9 +145,11 @@ impl BotScore {
 
     /// Create a score for a verified bad/fake bot.
     pub fn verified_bad_bot(reason: impl Into<String>) -> Self {
-        let mut signals = SignalBreakdown::default();
-        signals.known_bot_score = Some(100);
-        signals.reasons.push(reason.into());
+        let signals = SignalBreakdown {
+            known_bot_score: Some(100),
+            reasons: vec![reason.into()],
+            ..Default::default()
+        };
 
         Self {
             score: 100,

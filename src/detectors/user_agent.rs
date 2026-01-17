@@ -116,7 +116,7 @@ impl UserAgentAnalyzer {
                 if *score > max_score {
                     max_score = *score;
                 }
-                reasons.push(format!("bot_keyword_{}", keyword.replace('-', "_").replace('/', "_")));
+                reasons.push(format!("bot_keyword_{}", keyword.replace(['-', '/'], "_")));
             }
         }
 

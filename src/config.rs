@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Main configuration for the Bot Management agent.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BotManagementConfig {
     /// Score thresholds for decisions
@@ -31,20 +31,6 @@ pub struct BotManagementConfig {
     pub debug_headers: bool,
 }
 
-impl Default for BotManagementConfig {
-    fn default() -> Self {
-        Self {
-            thresholds: ThresholdConfig::default(),
-            detection: DetectionConfig::default(),
-            allow_list: AllowListConfig::default(),
-            challenge: ChallengeConfig::default(),
-            behavioral: BehavioralConfig::default(),
-            cache: CacheConfig::default(),
-            performance: PerformanceConfig::default(),
-            debug_headers: false,
-        }
-    }
-}
 
 /// Score thresholds for bot decisions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,21 +186,16 @@ impl Default for ChallengeConfig {
 }
 
 /// Challenge types.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ChallengeType {
     /// JavaScript computation challenge
+    #[default]
     JavaScript,
     /// CAPTCHA challenge
     Captcha,
     /// Proof of work challenge
     ProofOfWork,
-}
-
-impl Default for ChallengeType {
-    fn default() -> Self {
-        Self::JavaScript
-    }
 }
 
 /// Behavioral analysis configuration.

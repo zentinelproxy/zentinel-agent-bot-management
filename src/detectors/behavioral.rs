@@ -179,7 +179,7 @@ impl BehavioralAnalyzer {
         let count = self.request_counter.fetch_add(1, Ordering::Relaxed);
 
         // Cleanup every 1000 requests
-        if count % 1000 == 0 {
+        if count.is_multiple_of(1000) {
             self.sessions.retain(|_, v| !v.is_expired(self.session_timeout));
         }
     }

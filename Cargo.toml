@@ -1,6 +1,6 @@
 [package]
 name = "sentinel-agent-bot-management"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Raskell <hello@raskell.io>"]
 description = "Bot detection and management agent for Sentinel proxy"
@@ -11,8 +11,8 @@ categories = ["network-programming", "web-programming"]
 readme = "README.md"
 
 [dependencies]
-# Sentinel SDK
-sentinel-agent-sdk = "0.1"
+# Sentinel Agent Protocol v2
+sentinel-agent-protocol = { git = "https://github.com/raskell-io/sentinel.git", branch = "main" }
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
@@ -60,6 +60,12 @@ trust-dns-resolver = "0.23"
 
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
+
+# gRPC server for v2 protocol
+tonic = "0.11"
+
+# Tracing integration
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

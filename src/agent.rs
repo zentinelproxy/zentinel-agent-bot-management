@@ -8,15 +8,20 @@ use crate::detectors::{
 };
 use crate::score::{BotCategory, BotScore, ScoreCalculator, SignalBreakdown};
 use async_trait::async_trait;
-use sentinel_agent_sdk::Agent;
-use sentinel_agent_sdk::Decision;
-use sentinel_agent_sdk::Request;
+use sentinel_agent_protocol::v2::{
+    AgentCapabilities, AgentFeatures, AgentHandlerV2, DrainReason, HealthStatus, MetricsReport,
+    ShutdownReason, CounterMetric, GaugeMetric,
+};
+use sentinel_agent_protocol::{
+    AgentResponse, Decision, EventType, RequestHeadersEvent,
+};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Bot Management Agent for Sentinel.
 pub struct BotManagementAgent {
@@ -34,6 +39,18 @@ pub struct BotManagementAgent {
     score_calculator: ScoreCalculator,
     /// Challenge manager
     challenge_manager: ChallengeManager,
+    /// Metrics: total requests processed
+    requests_total: AtomicU64,
+    /// Metrics: requests blocked
+    requests_blocked: AtomicU64,
+    /// Metrics: requests challenged
+    requests_challenged: AtomicU64,
+    /// Metrics: requests allowed
+    requests_allowed: AtomicU64,
+    /// Metrics: verified good bots
+    verified_good_bots: AtomicU64,
+    /// Metrics: verified bad bots (fake bots)
+    verified_bad_bots: AtomicU64,
 }
 
 impl BotManagementAgent {
@@ -88,6 +105,12 @@ impl BotManagementAgent {
             behavioral_analyzer,
             score_calculator,
             challenge_manager,
+            requests_total: AtomicU64::new(0),
+            requests_blocked: AtomicU64::new(0),
+            requests_challenged: AtomicU64::new(0),
+            requests_allowed: AtomicU64::new(0),
+            verified_good_bots: AtomicU64::new(0),
+            verified_bad_bots: AtomicU64::new(0),
         })
     }
 
@@ -123,34 +146,41 @@ impl BotManagementAgent {
             behavioral_analyzer,
             score_calculator,
             challenge_manager,
+            requests_total: AtomicU64::new(0),
+            requests_blocked: AtomicU64::new(0),
+            requests_challenged: AtomicU64::new(0),
+            requests_allowed: AtomicU64::new(0),
+            verified_good_bots: AtomicU64::new(0),
+            verified_bad_bots: AtomicU64::new(0),
         })
     }
 
-    /// Build detection context from request.
-    fn build_context(&self, request: &Request) -> DetectionContext {
-        let headers: HashMap<String, Vec<String>> = request
-            .headers()
+    /// Build detection context from request headers event.
+    fn build_context(&self, event: &RequestHeadersEvent) -> DetectionContext {
+        let headers: HashMap<String, Vec<String>> = event
+            .headers
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        let client_ip: IpAddr = request
-            .client_ip()
+        let client_ip: IpAddr = event
+            .metadata
+            .client_ip
             .parse()
             .unwrap_or_else(|_| "0.0.0.0".parse().unwrap());
 
         DetectionContext {
             headers,
             client_ip,
-            path: request.path().to_string(),
-            method: request.method().to_string(),
-            correlation_id: request.correlation_id().to_string(),
+            path: event.uri.clone(),
+            method: event.method.clone(),
+            correlation_id: event.metadata.correlation_id.clone(),
         }
     }
 
-    /// Check if a valid challenge token is present.
-    fn has_valid_challenge_token(&self, request: &Request) -> bool {
-        if let Some(cookies) = request.header("cookie") {
+    /// Check if a valid challenge token is present in request headers.
+    fn has_valid_challenge_token(&self, event: &RequestHeadersEvent) -> bool {
+        if let Some(cookies) = event.headers.get("cookie").and_then(|v| v.first()) {
             if let Some(token) = self.challenge_manager.extract_token_from_cookies(cookies) {
                 return self.challenge_manager.verify_token(&token);
             }
@@ -231,27 +261,38 @@ impl BotManagementAgent {
     }
 
     /// Make decision based on bot score.
-    fn make_decision(&self, score: &BotScore) -> Decision {
+    fn make_decision(&self, score: &BotScore) -> AgentResponse {
         let thresholds = &self.config.thresholds;
 
         // Don't act if confidence is too low
         if score.confidence < thresholds.min_confidence && !score.is_verified {
-            return self.add_bot_headers(Decision::allow(), score);
+            self.requests_allowed.fetch_add(1, Ordering::Relaxed);
+            return self.add_bot_headers(AgentResponse::default_allow(), score);
         }
 
         if score.score <= thresholds.allow_threshold {
             // Allow - low bot score
-            self.add_bot_headers(Decision::allow(), score)
+            self.requests_allowed.fetch_add(1, Ordering::Relaxed);
+            self.add_bot_headers(AgentResponse::default_allow(), score)
         } else if score.score >= thresholds.block_threshold {
             // Block - high bot score
-            self.add_bot_headers(
-                Decision::deny()
-                    .with_body(r#"{"error": "access_denied", "reason": "bot_detected"}"#)
-                    .with_block_header("Content-Type", "application/json"),
-                score,
-            )
+            self.requests_blocked.fetch_add(1, Ordering::Relaxed);
+            let mut block_headers = HashMap::new();
+            block_headers.insert("Content-Type".to_string(), "application/json".to_string());
+            let mut response = AgentResponse::block(
+                403,
+                Some(r#"{"error": "access_denied", "reason": "bot_detected"}"#.to_string()),
+            );
+            response.decision = Decision::Block {
+                status: 403,
+                body: Some(r#"{"error": "access_denied", "reason": "bot_detected"}"#.to_string()),
+                headers: Some(block_headers),
+            };
+            self.add_bot_headers_to_response(&mut response, score);
+            response
         } else {
             // Challenge - uncertain
+            self.requests_challenged.fetch_add(1, Ordering::Relaxed);
             let params = self
                 .challenge_manager
                 .get_challenge_params(&self.config.challenge.default_type);
@@ -260,68 +301,130 @@ impl BotManagementAgent {
                 crate::config::ChallengeType::Captcha => "captcha",
                 crate::config::ChallengeType::ProofOfWork => "proof_of_work",
             };
-            self.add_bot_headers(Decision::challenge(challenge_type, params), score)
+            let mut response = AgentResponse::default_allow();
+            response.decision = Decision::Challenge {
+                challenge_type: challenge_type.to_string(),
+                params,
+            };
+            self.add_bot_headers_to_response(&mut response, score);
+            response
         }
     }
 
-    /// Add bot score headers to decision.
-    fn add_bot_headers(&self, decision: Decision, score: &BotScore) -> Decision {
-        let mut d = decision
-            .add_response_header("X-Bot-Score", score.score.to_string())
-            .add_response_header("X-Bot-Category", score.category.as_str())
-            .add_response_header("X-Bot-Confidence", format!("{:.2}", score.confidence));
+    /// Add bot score headers to an AgentResponse.
+    fn add_bot_headers(&self, mut response: AgentResponse, score: &BotScore) -> AgentResponse {
+        self.add_bot_headers_to_response(&mut response, score);
+        response
+    }
+
+    /// Add bot score headers to response (in place).
+    fn add_bot_headers_to_response(&self, response: &mut AgentResponse, score: &BotScore) {
+        use sentinel_agent_protocol::HeaderOp;
+
+        // Add response headers
+        response.response_headers.push(HeaderOp::Set {
+            name: "X-Bot-Score".to_string(),
+            value: score.score.to_string(),
+        });
+        response.response_headers.push(HeaderOp::Set {
+            name: "X-Bot-Category".to_string(),
+            value: score.category.as_str().to_string(),
+        });
+        response.response_headers.push(HeaderOp::Set {
+            name: "X-Bot-Confidence".to_string(),
+            value: format!("{:.2}", score.confidence),
+        });
 
         if let Some(ref name) = score.verified_bot_name {
-            d = d.add_response_header("X-Bot-Verified", name.clone());
+            response.response_headers.push(HeaderOp::Set {
+                name: "X-Bot-Verified".to_string(),
+                value: name.clone(),
+            });
         }
 
         if self.config.debug_headers {
             if let Ok(signals_json) = serde_json::to_string(&score.signals) {
-                d = d.add_response_header("X-Bot-Signals", signals_json);
+                response.response_headers.push(HeaderOp::Set {
+                    name: "X-Bot-Signals".to_string(),
+                    value: signals_json,
+                });
             }
         }
 
         // Add audit metadata
-        d = d
-            .with_tag("bot-management")
-            .with_confidence(score.confidence)
-            .with_metadata("bot_score", serde_json::json!(score.score))
-            .with_metadata("bot_category", serde_json::json!(score.category.as_str()));
+        response.audit.tags.push("bot-management".to_string());
+        response.audit.confidence = Some(score.confidence);
+        response.audit.custom.insert(
+            "bot_score".to_string(),
+            serde_json::json!(score.score),
+        );
+        response.audit.custom.insert(
+            "bot_category".to_string(),
+            serde_json::json!(score.category.as_str()),
+        );
 
         for reason in &score.signals.reasons {
-            d = d.with_reason_code(reason.clone());
+            response.audit.reason_codes.push(reason.clone());
         }
-
-        d
     }
 }
 
 #[async_trait]
-impl Agent for BotManagementAgent {
-    fn name(&self) -> &str {
-        "bot-management"
+impl AgentHandlerV2 for BotManagementAgent {
+    /// Return agent capabilities for v2 protocol.
+    fn capabilities(&self) -> AgentCapabilities {
+        AgentCapabilities::new("bot-management", "Bot Management Agent", env!("CARGO_PKG_VERSION"))
+            .with_event(EventType::RequestHeaders)
+            .with_features(AgentFeatures {
+                streaming_body: false,
+                websocket: false,
+                guardrails: false,
+                config_push: true,
+                metrics_export: true,
+                concurrent_requests: 100,
+                cancellation: true,
+                flow_control: false,
+                health_reporting: true,
+            })
     }
 
-    async fn on_request(&self, request: &Request) -> Decision {
+    /// Handle request headers event - main bot detection logic.
+    async fn on_request_headers(&self, event: RequestHeadersEvent) -> AgentResponse {
+        self.requests_total.fetch_add(1, Ordering::Relaxed);
+
         // Check for valid challenge token first
-        if self.has_valid_challenge_token(request) {
+        if self.has_valid_challenge_token(&event) {
             debug!(
-                correlation_id = request.correlation_id(),
+                correlation_id = %event.metadata.correlation_id,
                 "Valid challenge token found, allowing request"
             );
-            return Decision::allow()
-                .add_response_header("X-Bot-Challenge", "passed")
-                .with_tag("challenge_passed");
+            self.requests_allowed.fetch_add(1, Ordering::Relaxed);
+            let mut response = AgentResponse::default_allow();
+            response.response_headers.push(sentinel_agent_protocol::HeaderOp::Set {
+                name: "X-Bot-Challenge".to_string(),
+                value: "passed".to_string(),
+            });
+            response.audit.tags.push("challenge_passed".to_string());
+            return response;
         }
 
         // Build detection context
-        let ctx = self.build_context(request);
+        let ctx = self.build_context(&event);
 
         // Run detection
         let score = self.detect(&ctx).await;
 
+        // Track verified bot metrics
+        if score.is_verified {
+            if score.verified_bot_name.is_some() {
+                self.verified_good_bots.fetch_add(1, Ordering::Relaxed);
+            } else if score.score == 100 {
+                self.verified_bad_bots.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
         info!(
-            correlation_id = request.correlation_id(),
+            correlation_id = %event.metadata.correlation_id,
             client_ip = %ctx.client_ip,
             path = %ctx.path,
             bot_score = score.score,
@@ -334,12 +437,97 @@ impl Agent for BotManagementAgent {
         // Make decision
         self.make_decision(&score)
     }
+
+    /// Return current health status.
+    fn health_status(&self) -> HealthStatus {
+        HealthStatus::healthy("bot-management")
+    }
+
+    /// Return current metrics report.
+    fn metrics_report(&self) -> Option<MetricsReport> {
+        let mut report = MetricsReport::new("bot-management", 60_000);
+
+        // Add counter metrics
+        report.counters.push(CounterMetric::new(
+            "bot_management_requests_total",
+            self.requests_total.load(Ordering::Relaxed),
+        ));
+        report.counters.push(CounterMetric::new(
+            "bot_management_requests_allowed",
+            self.requests_allowed.load(Ordering::Relaxed),
+        ));
+        report.counters.push(CounterMetric::new(
+            "bot_management_requests_blocked",
+            self.requests_blocked.load(Ordering::Relaxed),
+        ));
+        report.counters.push(CounterMetric::new(
+            "bot_management_requests_challenged",
+            self.requests_challenged.load(Ordering::Relaxed),
+        ));
+        report.counters.push(CounterMetric::new(
+            "bot_management_verified_good_bots",
+            self.verified_good_bots.load(Ordering::Relaxed),
+        ));
+        report.counters.push(CounterMetric::new(
+            "bot_management_verified_bad_bots",
+            self.verified_bad_bots.load(Ordering::Relaxed),
+        ));
+
+        // Add gauge metrics
+        report.gauges.push(GaugeMetric::new(
+            "bot_management_block_threshold",
+            self.config.thresholds.block_threshold as f64,
+        ));
+        report.gauges.push(GaugeMetric::new(
+            "bot_management_allow_threshold",
+            self.config.thresholds.allow_threshold as f64,
+        ));
+
+        Some(report)
+    }
+
+    /// Handle configuration update from proxy.
+    async fn on_configure(&self, config: serde_json::Value, version: Option<String>) -> bool {
+        info!(
+            version = ?version,
+            "Received configuration update"
+        );
+
+        // For now, we accept the config but don't apply it dynamically
+        // A full implementation would validate and apply the new config
+        if let Err(e) = serde_json::from_value::<BotManagementConfig>(config) {
+            warn!(error = %e, "Invalid configuration received, rejecting");
+            return false;
+        }
+
+        true
+    }
+
+    /// Handle shutdown request.
+    async fn on_shutdown(&self, reason: ShutdownReason, grace_period_ms: u64) {
+        info!(
+            reason = ?reason,
+            grace_period_ms = grace_period_ms,
+            "Shutdown requested"
+        );
+        // Perform any cleanup if needed
+    }
+
+    /// Handle drain request.
+    async fn on_drain(&self, duration_ms: u64, reason: DrainReason) {
+        info!(
+            reason = ?reason,
+            duration_ms = duration_ms,
+            "Drain requested"
+        );
+        // Stop accepting new requests if needed
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sentinel_agent_protocol::{RequestHeadersEvent, RequestMetadata};
+    use sentinel_agent_protocol::RequestMetadata;
 
     fn make_request_event(ua: &str, ip: &str, path: &str) -> RequestHeadersEvent {
         let mut headers = HashMap::new();
@@ -372,7 +560,9 @@ mod tests {
     #[tokio::test]
     async fn test_agent_creation() {
         let agent = BotManagementAgent::with_defaults().await.unwrap();
-        assert_eq!(agent.name(), "bot-management");
+        let caps = agent.capabilities();
+        assert_eq!(caps.agent_id, "bot-management");
+        assert_eq!(caps.name, "Bot Management Agent");
     }
 
     #[tokio::test]
@@ -383,11 +573,43 @@ mod tests {
             "192.168.1.100",
             "/test",
         );
-        let request = Request::from_headers_event(&event);
-        let ctx = agent.build_context(&request);
+        let ctx = agent.build_context(&event);
 
         assert_eq!(ctx.client_ip.to_string(), "192.168.1.100");
         assert_eq!(ctx.path, "/test");
         assert!(ctx.headers.contains_key("user-agent"));
+    }
+
+    #[tokio::test]
+    async fn test_capabilities() {
+        let agent = BotManagementAgent::with_defaults().await.unwrap();
+        let caps = agent.capabilities();
+
+        assert!(caps.features.config_push);
+        assert!(caps.features.metrics_export);
+        assert!(caps.features.health_reporting);
+        assert!(!caps.features.streaming_body);
+        assert!(caps.supports_event(EventType::RequestHeaders));
+    }
+
+    #[tokio::test]
+    async fn test_health_status() {
+        let agent = BotManagementAgent::with_defaults().await.unwrap();
+        let health = agent.health_status();
+
+        assert!(health.is_healthy());
+        assert_eq!(health.agent_id, "bot-management");
+    }
+
+    #[tokio::test]
+    async fn test_metrics_report() {
+        let agent = BotManagementAgent::with_defaults().await.unwrap();
+        let report = agent.metrics_report();
+
+        assert!(report.is_some());
+        let report = report.unwrap();
+        assert_eq!(report.agent_id, "bot-management");
+        assert!(!report.counters.is_empty());
+        assert!(!report.gauges.is_empty());
     }
 }

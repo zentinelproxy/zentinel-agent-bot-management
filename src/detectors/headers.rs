@@ -94,7 +94,7 @@ impl Detector for HeaderAnalyzer {
         }
 
         // Check header values for suspicious patterns
-        for (_, values) in &ctx.headers {
+        for values in ctx.headers.values() {
             for value in values {
                 for (pattern, reason) in SUSPICIOUS_PATTERNS.iter() {
                     if pattern.is_match(value) {
