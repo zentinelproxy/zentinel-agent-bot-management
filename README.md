@@ -1,16 +1,16 @@
-# sentinel-agent-bot-management
+# zentinel-agent-bot-management
 
-Bot management and detection agent for Sentinel reverse proxy.
+Bot management and detection agent for Zentinel reverse proxy.
 
 ## Installation
 
 ```bash
-cargo install sentinel-agent-bot-management
+cargo install zentinel-agent-bot-management
 ```
 
 ## Documentation
 
-See [sentinel.raskell.io/docs/agents/bot-management](https://sentinel.raskell.io/docs/agents/bot-management)
+See [zentinelproxy.io/docs/agents/bot-management](https://zentinelproxy.io/docs/agents/bot-management)
 
 ## License
 

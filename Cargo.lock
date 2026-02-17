@@ -1914,7 +1914,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sentinel-agent-bot-management"
+name = "zentinel-agent-bot-management"
 version = "0.2.0"
 dependencies = [
  "anyhow",
@@ -1927,7 +1927,7 @@ dependencies = [
  "ipnet",
  "moka",
  "regex",
- "sentinel-agent-protocol",
+ "zentinel-agent-protocol",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -1944,9 +1944,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "sentinel-agent-protocol"
+name = "zentinel-agent-protocol"
 version = "0.3.4"
-source = "git+https://github.com/raskell-io/sentinel.git?branch=main#3f7a07a2db3bd165f9527e0ceed8ee9475ff3584"
+source = "git+https://github.com/zentinelproxy/zentinel.git?branch=main#3f7a07a2db3bd165f9527e0ceed8ee9475ff3584"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1959,7 +1959,7 @@ dependencies = [
  "parking_lot",
  "prost 0.13.5",
  "reqwest",
- "sentinel-common",
+ "zentinel-common",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -1975,9 +1975,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "sentinel-common"
+name = "zentinel-common"
 version = "0.3.4"
-source = "git+https://github.com/raskell-io/sentinel.git?branch=main#3f7a07a2db3bd165f9527e0ceed8ee9475ff3584"
+source = "git+https://github.com/zentinelproxy/zentinel.git?branch=main#3f7a07a2db3bd165f9527e0ceed8ee9475ff3584"
 dependencies = [
  "anyhow",
  "chrono",

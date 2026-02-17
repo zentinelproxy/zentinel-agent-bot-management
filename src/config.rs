@@ -177,10 +177,10 @@ impl Default for ChallengeConfig {
         Self {
             default_type: ChallengeType::JavaScript,
             challenge_url: None,
-            js_challenge_url: Some("/_sentinel/challenge.js".to_string()),
+            js_challenge_url: Some("/_zentinel/challenge.js".to_string()),
             token_validity_seconds: 300,
             token_secret: "change-me-in-production".to_string(),
-            cookie_name: "_sentinel_bot_check".to_string(),
+            cookie_name: "_zentinel_bot_check".to_string(),
         }
     }
 }

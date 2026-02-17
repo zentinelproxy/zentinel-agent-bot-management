@@ -176,9 +176,9 @@ impl Default for ChallengeManager {
         Self::new(
             "default-secret-change-me",
             300, // 5 minutes
-            "_sentinel_bot_check",
+            "_zentinel_bot_check",
             ChallengeType::JavaScript,
-            Some("/_sentinel/challenge.js".to_string()),
+            Some("/_zentinel/challenge.js".to_string()),
             None,
         )
     }

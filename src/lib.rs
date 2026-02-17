@@ -1,4 +1,4 @@
-//! Bot Management Agent for Sentinel
+//! Bot Management Agent for Zentinel
 //!
 //! Detects bots through multiple signals and returns bot scores with
 //! ALLOW/BLOCK/CHALLENGE decisions.
@@ -14,8 +14,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use sentinel_agent_bot_management::BotManagementAgent;
-//! use sentinel_agent_sdk::AgentRunner;
+//! use zentinel_agent_bot_management::BotManagementAgent;
+//! use zentinel_agent_sdk::AgentRunner;
 //!
 //! let agent = BotManagementAgent::new(config);
 //! AgentRunner::new(agent)

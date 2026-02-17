@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-# Sentinel Bot Management Agent Container Image
+# Zentinel Bot Management Agent Container Image
 #
 # Targets:
 #   - prebuilt: For CI with pre-built binaries
@@ -10,16 +10,16 @@
 ################################################################################
 FROM gcr.io/distroless/cc-debian12:nonroot AS prebuilt
 
-COPY sentinel-agent-bot-management /sentinel-agent-bot-management
+COPY zentinel-agent-bot-management /zentinel-agent-bot-management
 
-LABEL org.opencontainers.image.title="Sentinel Bot Management Agent" \
-      org.opencontainers.image.description="Sentinel Bot Management Agent for Sentinel reverse proxy" \
+LABEL org.opencontainers.image.title="Zentinel Bot Management Agent" \
+      org.opencontainers.image.description="Zentinel Bot Management Agent for Zentinel reverse proxy" \
       org.opencontainers.image.vendor="Raskell" \
-      org.opencontainers.image.source="https://github.com/raskell-io/sentinel-agent-bot-management"
+      org.opencontainers.image.source="https://github.com/zentinelproxy/zentinel-agent-bot-management"
 
-ENV RUST_LOG=info,sentinel_agent_bot_management=debug \
-    SOCKET_PATH=/var/run/sentinel/bot-management.sock
+ENV RUST_LOG=info,zentinel_agent_bot_management=debug \
+    SOCKET_PATH=/var/run/zentinel/bot-management.sock
 
 USER nonroot:nonroot
 
-ENTRYPOINT ["/sentinel-agent-bot-management"]
+ENTRYPOINT ["/zentinel-agent-bot-management"]

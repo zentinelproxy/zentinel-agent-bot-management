@@ -8,11 +8,11 @@ use crate::detectors::{
 };
 use crate::score::{BotCategory, BotScore, ScoreCalculator, SignalBreakdown};
 use async_trait::async_trait;
-use sentinel_agent_protocol::v2::{
+use zentinel_agent_protocol::v2::{
     AgentCapabilities, AgentFeatures, AgentHandlerV2, DrainReason, HealthStatus, MetricsReport,
     ShutdownReason, CounterMetric, GaugeMetric,
 };
-use sentinel_agent_protocol::{
+use zentinel_agent_protocol::{
     AgentResponse, Decision, EventType, RequestHeadersEvent,
 };
 use std::collections::HashMap;
@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, warn};
 
-/// Bot Management Agent for Sentinel.
+/// Bot Management Agent for Zentinel.
 pub struct BotManagementAgent {
     /// Configuration
     config: BotManagementConfig,
@@ -319,7 +319,7 @@ impl BotManagementAgent {
 
     /// Add bot score headers to response (in place).
     fn add_bot_headers_to_response(&self, response: &mut AgentResponse, score: &BotScore) {
-        use sentinel_agent_protocol::HeaderOp;
+        use zentinel_agent_protocol::HeaderOp;
 
         // Add response headers
         response.response_headers.push(HeaderOp::Set {
@@ -400,7 +400,7 @@ impl AgentHandlerV2 for BotManagementAgent {
             );
             self.requests_allowed.fetch_add(1, Ordering::Relaxed);
             let mut response = AgentResponse::default_allow();
-            response.response_headers.push(sentinel_agent_protocol::HeaderOp::Set {
+            response.response_headers.push(zentinel_agent_protocol::HeaderOp::Set {
                 name: "X-Bot-Challenge".to_string(),
                 value: "passed".to_string(),
             });
@@ -527,7 +527,7 @@ impl AgentHandlerV2 for BotManagementAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sentinel_agent_protocol::RequestMetadata;
+    use zentinel_agent_protocol::RequestMetadata;
 
     fn make_request_event(ua: &str, ip: &str, path: &str) -> RequestHeadersEvent {
         let mut headers = HashMap::new();

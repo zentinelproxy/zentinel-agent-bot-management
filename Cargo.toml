@@ -1,18 +1,18 @@
 [package]
-name = "sentinel-agent-bot-management"
+name = "zentinel-agent-bot-management"
 version = "0.2.0"
 edition = "2021"
 authors = ["Raskell <hello@raskell.io>"]
-description = "Bot detection and management agent for Sentinel proxy"
+description = "Bot detection and management agent for Zentinel proxy"
 license = "Apache-2.0"
-repository = "https://github.com/raskell-io/sentinel-agent-bot-management"
-keywords = ["sentinel", "proxy", "agent", "bot", "security"]
+repository = "https://github.com/zentinelproxy/zentinel-agent-bot-management"
+keywords = ["zentinel", "proxy", "agent", "bot", "security"]
 categories = ["network-programming", "web-programming"]
 readme = "README.md"
 
 [dependencies]
-# Sentinel Agent Protocol v2
-sentinel-agent-protocol = { git = "https://github.com/raskell-io/sentinel.git", branch = "main" }
+# Zentinel Agent Protocol v2
+zentinel-agent-protocol = { git = "https://github.com/zentinelproxy/zentinel.git", branch = "main" }
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
@@ -70,12 +70,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3"
-sentinel-agent-protocol = { git = "https://github.com/raskell-io/sentinel.git", branch = "main" }
+zentinel-agent-protocol = { git = "https://github.com/zentinelproxy/zentinel.git", branch = "main" }
 
 [[bin]]
-name = "sentinel-agent-bot-management"
+name = "zentinel-agent-bot-management"
 path = "src/main.rs"
 
 [lib]
-name = "sentinel_agent_bot_management"
+name = "zentinel_agent_bot_management"
 path = "src/lib.rs"

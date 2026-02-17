@@ -1,18 +1,18 @@
-//! Integration tests for the Sentinel Bot Management Agent.
+//! Integration tests for the Zentinel Bot Management Agent.
 //!
 //! These tests verify the complete functionality of the bot management agent,
 //! including configuration parsing, bot scoring, challenge tokens, and detectors.
 
-use sentinel_agent_bot_management::{
+use zentinel_agent_bot_management::{
     BotManagementAgent, BotManagementConfig, BotCategory, BotScore, SignalBreakdown,
 };
-use sentinel_agent_bot_management::config::{
+use zentinel_agent_bot_management::config::{
     AllowListConfig, BehavioralConfig, CacheConfig, ChallengeConfig, ChallengeType,
     DetectionConfig, PerformanceConfig, SignalWeights, ThresholdConfig,
 };
-use sentinel_agent_bot_management::score::ScoreCalculator;
-use sentinel_agent_bot_management::challenge::ChallengeManager;
-use sentinel_agent_bot_management::detectors::{
+use zentinel_agent_bot_management::score::ScoreCalculator;
+use zentinel_agent_bot_management::challenge::ChallengeManager;
+use zentinel_agent_bot_management::detectors::{
     DetectionContext, DetectorResult, Detector,
     UserAgentAnalyzer, HeaderAnalyzer,
 };

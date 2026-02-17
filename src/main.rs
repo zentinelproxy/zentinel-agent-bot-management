@@ -1,21 +1,21 @@
-//! Bot Management Agent for Sentinel
+//! Bot Management Agent for Zentinel
 //!
 //! Detects bots through multiple signals and returns bot scores.
 
 use anyhow::Result;
 use clap::Parser;
-use sentinel_agent_bot_management::{BotManagementAgent, BotManagementConfig};
-use sentinel_agent_protocol::v2::GrpcAgentServerV2;
+use zentinel_agent_bot_management::{BotManagementAgent, BotManagementConfig};
+use zentinel_agent_protocol::v2::GrpcAgentServerV2;
 use std::path::PathBuf;
 use tracing::{info, Level};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[derive(Parser, Debug)]
-#[command(name = "sentinel-agent-bot-management")]
-#[command(author, version, about = "Bot detection and management agent for Sentinel")]
+#[command(name = "zentinel-agent-bot-management")]
+#[command(author, version, about = "Bot detection and management agent for Zentinel")]
 struct Args {
     /// Unix socket path for the agent server (v2 UDS transport)
-    #[arg(short, long, default_value = "/tmp/sentinel-bot-management.sock")]
+    #[arg(short, long, default_value = "/tmp/zentinel-bot-management.sock")]
     socket: PathBuf,
 
     /// gRPC address for the agent server (v2 gRPC transport)
@@ -120,11 +120,11 @@ async fn main() -> Result<()> {
 
 /// Run the agent as a UDS server.
 async fn run_uds_server(socket_path: PathBuf, agent: BotManagementAgent) -> Result<()> {
-    use sentinel_agent_protocol::v2::uds::{
+    use zentinel_agent_protocol::v2::uds::{
         read_message, write_message, MessageType, UdsHandshakeRequest, UdsHandshakeResponse,
         UdsCapabilities, UdsFeatures, UdsLimits,
     };
-    use sentinel_agent_protocol::v2::AgentHandlerV2;
+    use zentinel_agent_protocol::v2::AgentHandlerV2;
     use tokio::io::{BufReader, BufWriter};
     use tokio::net::UnixListener;
     use std::sync::Arc;
@@ -198,7 +198,7 @@ async fn run_uds_server(socket_path: PathBuf, agent: BotManagementAgent) -> Resu
                 },
                 success: true,
                 error: None,
-                encoding: sentinel_agent_protocol::v2::uds::UdsEncoding::Json,
+                encoding: zentinel_agent_protocol::v2::uds::UdsEncoding::Json,
             };
 
             let response_bytes = match serde_json::to_vec(&response) {
@@ -220,7 +220,7 @@ async fn run_uds_server(socket_path: PathBuf, agent: BotManagementAgent) -> Resu
             loop {
                 let (msg_type, payload) = match read_message(&mut reader).await {
                     Ok(r) => r,
-                    Err(sentinel_agent_protocol::AgentProtocolError::ConnectionClosed) => {
+                    Err(zentinel_agent_protocol::AgentProtocolError::ConnectionClosed) => {
                         tracing::debug!("Client disconnected");
                         break;
                     }
@@ -232,7 +232,7 @@ async fn run_uds_server(socket_path: PathBuf, agent: BotManagementAgent) -> Resu
 
                 match msg_type {
                     MessageType::RequestHeaders => {
-                        let event: sentinel_agent_protocol::RequestHeadersEvent =
+                        let event: zentinel_agent_protocol::RequestHeadersEvent =
                             match serde_json::from_slice(&payload) {
                                 Ok(e) => e,
                                 Err(e) => {
