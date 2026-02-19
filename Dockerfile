@@ -10,7 +10,7 @@
 ################################################################################
 FROM gcr.io/distroless/cc-debian12:nonroot AS prebuilt
 
-COPY zentinel-agent-bot-management /zentinel-agent-bot-management
+COPY zentinel-bot-management-agent /zentinel-bot-management-agent
 
 LABEL org.opencontainers.image.title="Zentinel Bot Management Agent" \
       org.opencontainers.image.description="Zentinel Bot Management Agent for Zentinel reverse proxy" \
@@ -22,4 +22,4 @@ ENV RUST_LOG=info,zentinel_agent_bot_management=debug \
 
 USER nonroot:nonroot
 
-ENTRYPOINT ["/zentinel-agent-bot-management"]
+ENTRYPOINT ["/zentinel-bot-management-agent"]

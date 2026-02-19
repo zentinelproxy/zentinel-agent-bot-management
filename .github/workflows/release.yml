@@ -13,7 +13,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  BINARY_NAME: zentinel-agent-bot-management
+  BINARY_NAME: zentinel-bot-management-agent
 
 jobs:
   build:

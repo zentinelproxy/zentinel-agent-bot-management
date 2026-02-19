@@ -73,7 +73,7 @@ tempfile = "3"
 zentinel-agent-protocol = "0.5"
 
 [[bin]]
-name = "zentinel-agent-bot-management"
+name = "zentinel-bot-management-agent"
 path = "src/main.rs"
 
 [lib]
