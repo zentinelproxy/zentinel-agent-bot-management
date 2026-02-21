@@ -52,7 +52,7 @@ impl ChallengeManager {
     pub fn generate_token(&self) -> String {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system clock is before UNIX epoch")
             .as_secs();
 
         let nonce = self.generate_nonce();
@@ -82,7 +82,7 @@ impl ChallengeManager {
         // Check expiration
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system clock is before UNIX epoch")
             .as_secs();
 
         // Use >= to ensure 0 validity means immediately expired

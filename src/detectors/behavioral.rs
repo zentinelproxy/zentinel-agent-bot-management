@@ -87,8 +87,8 @@ impl SessionData {
             return 0.0;
         }
 
-        let first = self.request_times.front().unwrap();
-        let last = self.request_times.back().unwrap();
+        let first = self.request_times.front().expect("request_times has >= 2 elements");
+        let last = self.request_times.back().expect("request_times has >= 2 elements");
         let duration = last.duration_since(*first);
 
         if duration.as_secs() == 0 {

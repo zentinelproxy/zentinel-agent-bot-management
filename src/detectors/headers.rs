@@ -35,10 +35,10 @@ static AUTOMATION_HEADERS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
 /// Suspicious header patterns.
 static SUSPICIOUS_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
     vec![
-        (Regex::new(r"(?i)^selenium").unwrap(), "selenium_marker"),
-        (Regex::new(r"(?i)^puppeteer").unwrap(), "puppeteer_marker"),
-        (Regex::new(r"(?i)^playwright").unwrap(), "playwright_marker"),
-        (Regex::new(r"(?i)headless").unwrap(), "headless_marker"),
+        (Regex::new(r"(?i)^selenium").expect("valid regex: selenium"), "selenium_marker"),
+        (Regex::new(r"(?i)^puppeteer").expect("valid regex: puppeteer"), "puppeteer_marker"),
+        (Regex::new(r"(?i)^playwright").expect("valid regex: playwright"), "playwright_marker"),
+        (Regex::new(r"(?i)headless").expect("valid regex: headless"), "headless_marker"),
     ]
 });
 

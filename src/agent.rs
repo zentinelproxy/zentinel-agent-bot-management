@@ -167,7 +167,7 @@ impl BotManagementAgent {
             .metadata
             .client_ip
             .parse()
-            .unwrap_or_else(|_| "0.0.0.0".parse().unwrap());
+            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
 
         DetectionContext {
             headers,

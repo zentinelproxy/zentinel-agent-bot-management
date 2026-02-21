@@ -66,11 +66,11 @@ static BOT_KEYWORDS: LazyLock<Vec<(&'static str, u8)>> = LazyLock::new(|| {
 static OUTDATED_PATTERNS: LazyLock<Vec<(Regex, &'static str, u8)>> = LazyLock::new(|| {
     vec![
         // Very old Chrome versions (Chrome 90+ is current as of 2024)
-        (Regex::new(r"Chrome/([1-7][0-9])\.").unwrap(), "outdated_chrome", 30),
+        (Regex::new(r"Chrome/([1-7][0-9])\.").expect("valid regex: outdated Chrome version"), "outdated_chrome", 30),
         // Very old Firefox versions
-        (Regex::new(r"Firefox/([1-7][0-9])\.").unwrap(), "outdated_firefox", 30),
+        (Regex::new(r"Firefox/([1-7][0-9])\.").expect("valid regex: outdated Firefox version"), "outdated_firefox", 30),
         // IE is always suspicious in 2024+
-        (Regex::new(r"MSIE|Trident").unwrap(), "internet_explorer", 40),
+        (Regex::new(r"MSIE|Trident").expect("valid regex: IE detection"), "internet_explorer", 40),
     ]
 });
 
@@ -78,13 +78,13 @@ static OUTDATED_PATTERNS: LazyLock<Vec<(Regex, &'static str, u8)>> = LazyLock::n
 static IMPOSSIBLE_PATTERNS: LazyLock<Vec<(Regex, &'static str, u8)>> = LazyLock::new(|| {
     vec![
         // Android + Windows
-        (Regex::new(r"(?i)android.*windows|windows.*android").unwrap(), "android_windows", 70),
+        (Regex::new(r"(?i)android.*windows|windows.*android").expect("valid regex: android+windows"), "android_windows", 70),
         // iPhone + Android
-        (Regex::new(r"(?i)iphone.*android|android.*iphone").unwrap(), "iphone_android", 70),
+        (Regex::new(r"(?i)iphone.*android|android.*iphone").expect("valid regex: iphone+android"), "iphone_android", 70),
         // Mac + Windows
-        (Regex::new(r"(?i)macintosh.*windows nt|windows nt.*macintosh").unwrap(), "mac_windows", 70),
+        (Regex::new(r"(?i)macintosh.*windows nt|windows nt.*macintosh").expect("valid regex: mac+windows"), "mac_windows", 70),
         // Too many browser engines
-        (Regex::new(r"Chrome.*Firefox.*Safari.*Edge").unwrap(), "too_many_engines", 60),
+        (Regex::new(r"Chrome.*Firefox.*Safari.*Edge").expect("valid regex: too many engines"), "too_many_engines", 60),
     ]
 });
 
