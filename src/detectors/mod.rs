@@ -21,8 +21,8 @@ use std::net::IpAddr;
 pub struct DetectionContext {
     /// Request headers (lowercase keys)
     pub headers: HashMap<String, Vec<String>>,
-    /// Client IP address
-    pub client_ip: IpAddr,
+    /// Client IP address; `None` when the request has no usable one
+    pub client_ip: Option<IpAddr>,
     /// Request path
     pub path: String,
     /// HTTP method

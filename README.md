@@ -188,6 +188,7 @@ Every key is optional. Keys that are read:
 | `cache.verification_cache_size` | `10000` | Cached crawler verification results. |
 | `cache.verification_cache_ttl_seconds` | `3600` | Lifetime of a cached verification. |
 | `debug_headers` | `false` | Add `X-Bot-Signals` (per-detector scores as JSON) to responses. |
+| `trusted_proxies` | empty | IPs or CIDRs of proxies whose `X-Forwarded-For` / `X-Real-IP` are believed for the client IP. An invalid entry stops the agent from starting. |
 
 The file format also has `allow_list.search_engines`, `social_media`,
 `monitoring`, `seo_tools`, `custom_patterns`, `custom_ip_ranges`,
@@ -236,10 +237,18 @@ The agent subscribes to `request_headers` only.
 - **Known-bot database**: a bad-pattern match scores the pattern's value; a
   good-bot User-Agent is checked against the bot's IP ranges, then by
   forward-confirmed reverse DNS when the entry has `verify_dns`. Verified means
-  score 0 and allow; a failed check means score 100 and block. Only Googlebot
-  and Bingbot have `verify_dns`, so only they can be caught as fakes; for the
-  other entries a matching User-Agent outside the listed ranges (or with no
-  ranges at all) still counts as verified.
+  score 0 and allow; a failed check means score 100 and block. Googlebot and
+  Bingbot are checked by range and DNS, DuckDuckBot by range only (outside its
+  ranges it is a fake); entries with neither (Facebook, Twitter, LinkedIn,
+  Slack) are verified by User-Agent alone. A request without a usable client IP
+  cannot pass a range or DNS check.
+- **Client IP** is the connection address Zentinel reports in the request
+  metadata; `X-Forwarded-For` / `X-Real-IP` sent by the client are ignored.
+  Only when that address is in `trusted_proxies` are they read, right to left,
+  taking the first hop that is not a trusted proxy (needed only with Zentinel
+  older than 0.6.48, which does not resolve the client behind its listener's
+  `trusted-proxies` itself). Requests without a usable address share one
+  behavioral session.
 - **Behavioral detector**: per client IP, in process memory: requests per
   minute, timing regularity (coefficient of variation of intervals), share of
   distinct paths, and sustained high rate.

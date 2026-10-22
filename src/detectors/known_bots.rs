@@ -54,7 +54,7 @@ pub struct KnownBotDatabase {
     /// Bad bot patterns
     bad_patterns: Vec<CompiledPattern>,
     /// IP to bot verification cache
-    verification_cache: Cache<(IpAddr, String), VerificationResult>,
+    verification_cache: Cache<(Option<IpAddr>, String), VerificationResult>,
     /// DNS resolver
     resolver: TokioAsyncResolver,
     /// Whether to verify bot identity
@@ -372,7 +372,18 @@ impl KnownBotDatabase {
         for bot in &self.good_bots {
             if bot.ua_patterns.iter().any(|p| p.is_match(ua)) {
                 let result = if self.verify_identity {
-                    self.verify_bot(bot, ctx.client_ip).await
+                    match ctx.client_ip {
+                        Some(ip) => self.verify_bot(bot, ip).await,
+                        // A claimed bot whose address is unknown cannot be
+                        // verified by IP range or reverse DNS.
+                        None if bot.ip_ranges.is_empty() && bot.verify_dns.is_none() => {
+                            VerificationResult::Verified(bot.name.clone(), bot.category.clone())
+                        }
+                        None => VerificationResult::Fake(format!(
+                            "Fake {} - no client IP to verify",
+                            bot.name
+                        )),
+                    }
                 } else {
                     VerificationResult::Verified(bot.name.clone(), bot.category.clone())
                 };
@@ -421,6 +432,11 @@ impl KnownBotDatabase {
             }
             // Claims to be this bot but doesn't verify
             return VerificationResult::Fake(format!("Fake {} - IP verification failed", bot.name));
+        }
+
+        // IP ranges are the only method and none matched
+        if !bot.ip_ranges.is_empty() {
+            return VerificationResult::Fake(format!("Fake {} - IP not in its ranges", bot.name));
         }
 
         // No verification method available, trust the UA
@@ -494,7 +510,7 @@ mod tests {
         headers.insert("user-agent".to_string(), vec![ua.to_string()]);
         DetectionContext {
             headers,
-            client_ip: ip.parse().unwrap(),
+            client_ip: Some(ip.parse().unwrap()),
             path: "/".to_string(),
             method: "GET".to_string(),
             correlation_id: "test".to_string(),
@@ -509,6 +525,37 @@ mod tests {
         let ctx = make_ctx("Googlebot/2.1", "127.0.0.1");
         let result = db.analyze(&ctx).await;
         assert_eq!(result.score, 0, "Googlebot should have score 0");
+    }
+
+    #[tokio::test]
+    async fn test_range_only_bot_outside_ranges_is_fake() {
+        let db = KnownBotDatabase::with_defaults(true).await.unwrap();
+
+        let ctx = make_ctx("DuckDuckBot/1.1", "203.0.113.5");
+        assert_eq!(
+            db.analyze(&ctx).await.score,
+            100,
+            "unverified DuckDuckBot trusted"
+        );
+
+        let ctx = make_ctx("DuckDuckBot/1.1", "20.191.45.212");
+        assert_eq!(db.analyze(&ctx).await.score, 0);
+    }
+
+    #[tokio::test]
+    async fn test_claimed_bot_without_client_ip_is_not_verified() {
+        let db = KnownBotDatabase::with_defaults(true).await.unwrap();
+
+        for ua in ["Googlebot/2.1", "DuckDuckBot/1.1"] {
+            let mut ctx = make_ctx(ua, "127.0.0.1");
+            ctx.client_ip = None;
+            assert_eq!(
+                db.analyze(&ctx).await.score,
+                100,
+                "{} verified without an IP",
+                ua
+            );
+        }
     }
 
     #[tokio::test]

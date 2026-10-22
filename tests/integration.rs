@@ -576,7 +576,7 @@ fn make_detection_context(ua: &str, client_ip: &str) -> DetectionContext {
 
     DetectionContext {
         headers,
-        client_ip: client_ip.parse().unwrap(),
+        client_ip: Some(client_ip.parse().unwrap()),
         path: "/".to_string(),
         method: "GET".to_string(),
         correlation_id: "test-123".to_string(),
@@ -601,7 +601,7 @@ fn test_detection_context_user_agent() {
     let headers = HashMap::new();
     let ctx_no_ua = DetectionContext {
         headers,
-        client_ip: "127.0.0.1".parse().unwrap(),
+        client_ip: Some("127.0.0.1".parse().unwrap()),
         path: "/".to_string(),
         method: "GET".to_string(),
         correlation_id: "test".to_string(),
@@ -724,7 +724,7 @@ async fn test_ua_analyzer_missing_ua() {
     let analyzer = UserAgentAnalyzer::new();
     let ctx = DetectionContext {
         headers: HashMap::new(),
-        client_ip: "127.0.0.1".parse().unwrap(),
+        client_ip: Some("127.0.0.1".parse().unwrap()),
         path: "/".to_string(),
         method: "GET".to_string(),
         correlation_id: "test".to_string(),
@@ -765,7 +765,7 @@ fn make_context_with_headers(headers: Vec<(&str, &str)>) -> DetectionContext {
 
     DetectionContext {
         headers: header_map,
-        client_ip: "192.168.1.1".parse().unwrap(),
+        client_ip: Some("192.168.1.1".parse().unwrap()),
         path: "/".to_string(),
         method: "GET".to_string(),
         correlation_id: "test".to_string(),
@@ -838,6 +838,7 @@ async fn test_agent_creation_with_custom_config() {
         cache: CacheConfig::default(),
         performance: PerformanceConfig::default(),
         debug_headers: true,
+        trusted_proxies: vec![],
     };
 
     let good_bots_path = std::path::Path::new("data/good_bots.json");
