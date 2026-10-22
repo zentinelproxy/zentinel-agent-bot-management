@@ -292,7 +292,7 @@ Needs `protoc` (CI installs `protobuf-compiler`) and stable Rust (CI uses
 
 ## License
 
-Apache-2.0 (declared in Cargo.toml; this repository has no LICENSE file yet).
+Apache-2.0, see [`LICENSE`](LICENSE).
 
 ---
 
