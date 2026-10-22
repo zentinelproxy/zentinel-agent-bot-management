@@ -29,6 +29,10 @@ pub struct BotManagementConfig {
 
     /// Include debug headers in response
     pub debug_headers: bool,
+
+    /// Proxies (IPs or CIDRs) whose X-Forwarded-For / X-Real-IP are believed.
+    /// Otherwise the client IP is the connection address Zentinel reports.
+    pub trusted_proxies: Vec<String>,
 }
 
 /// Score thresholds for bot decisions.

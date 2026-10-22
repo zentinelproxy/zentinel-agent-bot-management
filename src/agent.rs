@@ -1,6 +1,7 @@
 //! Main bot management agent implementation.
 
 use crate::challenge::ChallengeManager;
+use crate::client_ip::{default_forwarding_headers, resolve_client_ip, TrustedProxies};
 use crate::config::BotManagementConfig;
 use crate::detectors::{
     BehavioralAnalyzer, DetectionContext, Detector, HeaderAnalyzer, KnownBotDatabase,
@@ -9,7 +10,6 @@ use crate::detectors::{
 use crate::score::{BotCategory, BotScore, ScoreCalculator, SignalBreakdown};
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -37,6 +37,8 @@ pub struct BotManagementAgent {
     score_calculator: ScoreCalculator,
     /// Challenge manager
     challenge_manager: ChallengeManager,
+    /// Proxies whose forwarding headers are believed
+    trusted_proxies: TrustedProxies,
     /// Metrics: total requests processed
     requests_total: AtomicU64,
     /// Metrics: requests blocked
@@ -95,8 +97,12 @@ impl BotManagementAgent {
             config.challenge.challenge_url.clone(),
         );
 
+        let trusted_proxies = TrustedProxies::parse(&config.trusted_proxies)
+            .map_err(|e| anyhow::anyhow!("trusted_proxies: {}", e))?;
+
         Ok(Self {
             config,
+            trusted_proxies,
             header_analyzer: HeaderAnalyzer::new(),
             user_agent_analyzer: UserAgentAnalyzer::new(),
             known_bot_db: Arc::new(known_bot_db),
@@ -137,8 +143,12 @@ impl BotManagementAgent {
             config.challenge.challenge_url.clone(),
         );
 
+        let trusted_proxies = TrustedProxies::parse(&config.trusted_proxies)
+            .map_err(|e| anyhow::anyhow!("trusted_proxies: {}", e))?;
+
         Ok(Self {
             config,
+            trusted_proxies,
             header_analyzer: HeaderAnalyzer::new(),
             user_agent_analyzer: UserAgentAnalyzer::new(),
             known_bot_db: Arc::new(known_bot_db),
@@ -162,11 +172,15 @@ impl BotManagementAgent {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        let client_ip: IpAddr = event
-            .metadata
-            .client_ip
-            .parse()
-            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
+        // The connection address Zentinel reports, or behind a trusted proxy
+        // the right-most untrusted forwarding hop. Never a client-set header
+        // on its own.
+        let client_ip = resolve_client_ip(
+            &event.metadata.client_ip,
+            &event.headers,
+            &default_forwarding_headers(),
+            &self.trusted_proxies,
+        );
 
         DetectionContext {
             headers,
@@ -430,7 +444,7 @@ impl AgentHandlerV2 for BotManagementAgent {
 
         info!(
             correlation_id = %event.metadata.correlation_id,
-            client_ip = %ctx.client_ip,
+            client_ip = ?ctx.client_ip,
             path = %ctx.path,
             bot_score = score.score,
             confidence = score.confidence,
@@ -576,9 +590,58 @@ mod tests {
         let event = make_request_event("Mozilla/5.0 Chrome/120", "192.168.1.100", "/test");
         let ctx = agent.build_context(&event);
 
-        assert_eq!(ctx.client_ip.to_string(), "192.168.1.100");
+        assert_eq!(ctx.client_ip, Some("192.168.1.100".parse().unwrap()));
         assert_eq!(ctx.path, "/test");
         assert!(ctx.headers.contains_key("user-agent"));
+    }
+
+    #[tokio::test]
+    async fn test_client_ip_ignores_spoofed_forwarding_headers() {
+        let agent = BotManagementAgent::with_defaults().await.unwrap();
+        let mut event = make_request_event("Mozilla/5.0 Chrome/120", "203.0.113.5", "/");
+        event.headers.insert(
+            "x-forwarded-for".to_string(),
+            vec!["66.249.66.1".to_string()],
+        );
+        event
+            .headers
+            .insert("x-real-ip".to_string(), vec!["66.249.66.1".to_string()]);
+        let ctx = agent.build_context(&event);
+        assert_eq!(ctx.client_ip, Some("203.0.113.5".parse().unwrap()));
+    }
+
+    #[tokio::test]
+    async fn test_client_ip_behind_trusted_proxy() {
+        let config = BotManagementConfig {
+            trusted_proxies: vec!["10.0.0.0/8".to_string()],
+            ..Default::default()
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let agent = BotManagementAgent::new(
+            config,
+            &dir.path().join("none.json"),
+            &dir.path().join("none.json"),
+        )
+        .await
+        .unwrap();
+        let mut event = make_request_event("Mozilla/5.0 Chrome/120", "10.0.0.1", "/");
+        event.headers.insert(
+            "x-forwarded-for".to_string(),
+            vec!["66.249.66.1, 203.0.113.5, 10.0.0.2".to_string()],
+        );
+        let ctx = agent.build_context(&event);
+        assert_eq!(ctx.client_ip, Some("203.0.113.5".parse().unwrap()));
+    }
+
+    #[tokio::test]
+    async fn test_no_usable_client_ip() {
+        let agent = BotManagementAgent::with_defaults().await.unwrap();
+        let mut event = make_request_event("Mozilla/5.0 Chrome/120", "", "/");
+        event.headers.insert(
+            "x-forwarded-for".to_string(),
+            vec!["66.249.66.1".to_string()],
+        );
+        assert_eq!(agent.build_context(&event).client_ip, None);
     }
 
     #[tokio::test]

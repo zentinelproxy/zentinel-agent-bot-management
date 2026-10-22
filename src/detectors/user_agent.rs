@@ -282,7 +282,7 @@ mod tests {
         headers.insert("user-agent".to_string(), vec![ua.to_string()]);
         DetectionContext {
             headers,
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: Some("127.0.0.1".parse().unwrap()),
             path: "/".to_string(),
             method: "GET".to_string(),
             correlation_id: "test".to_string(),
@@ -326,7 +326,7 @@ mod tests {
         let analyzer = UserAgentAnalyzer::new();
         let ctx = DetectionContext {
             headers: HashMap::new(),
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: Some("127.0.0.1".parse().unwrap()),
             path: "/".to_string(),
             method: "GET".to_string(),
             correlation_id: "test".to_string(),

@@ -27,6 +27,7 @@
 pub mod agent;
 pub mod cache;
 pub mod challenge;
+pub mod client_ip;
 pub mod config;
 pub mod detectors;
 pub mod score;

@@ -222,7 +222,12 @@ impl Detector for BehavioralAnalyzer {
     async fn analyze(&self, ctx: &DetectionContext) -> DetectorResult {
         self.maybe_cleanup();
 
-        let key = SessionKey::from(ctx.client_ip);
+        // Requests without a usable client IP share one session, so they are
+        // rate-scored together rather than each looking new.
+        let key = SessionKey::from(
+            ctx.client_ip
+                .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)),
+        );
         let mut session = self.get_or_create_session(key);
 
         // Record this request
@@ -307,7 +312,7 @@ mod tests {
         headers.insert("user-agent".to_string(), vec!["Test/1.0".to_string()]);
         DetectionContext {
             headers,
-            client_ip: ip.parse().unwrap(),
+            client_ip: Some(ip.parse().unwrap()),
             path: path.to_string(),
             method: "GET".to_string(),
             correlation_id: "test".to_string(),

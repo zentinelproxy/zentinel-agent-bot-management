@@ -182,7 +182,7 @@ mod tests {
         }
         DetectionContext {
             headers: h,
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: Some("127.0.0.1".parse().unwrap()),
             path: "/".to_string(),
             method: "GET".to_string(),
             correlation_id: "test".to_string(),
