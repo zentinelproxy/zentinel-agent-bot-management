@@ -11,7 +11,7 @@ use zentinel_agent_bot_management::{BotManagementAgent, BotManagementConfig};
 use zentinel_agent_protocol::v2::{GrpcAgentServerV2, UdsAgentServerV2};
 
 #[derive(Parser, Debug)]
-#[command(name = "zentinel-agent-bot-management")]
+#[command(name = "zentinel-bot-management-agent")]
 #[command(
     author,
     version,
@@ -121,4 +121,20 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    /// The release pipeline and `zentinel bundle install` expect exactly
+    /// `<binary> <version>`.
+    #[test]
+    fn version_is_binary_name_and_package_version() {
+        assert_eq!(
+            Args::command().render_version(),
+            format!("{} {}\n", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"))
+        );
+    }
 }

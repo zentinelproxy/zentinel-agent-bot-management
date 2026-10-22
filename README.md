@@ -99,6 +99,14 @@ zentinel bundle install bot-management
 
 Downloads the release binary pinned in Zentinel's bundle lock and installs it as `zentinel-bot-management-agent`.
 
+> [!WARNING]
+> The published `0.4.0` release, which Zentinel 26.10_7's bundle lock pins,
+> was not built from its tag (it reports `zentinel-agent-bot-management
+> 0.2.0`). Behind Zentinel 26.10_7 it refuses a request with ordinary browser
+> headers (`503`) and lets a fake DuckDuckBot through. Use `0.5.0` or later,
+> the first release built and smoke-tested by the shared release pipeline
+> (below).
+
 ### Release binaries
 
 Tarballs for `linux-x86_64`, `linux-aarch64` and `darwin-aarch64` are attached to each [release](https://github.com/zentinelproxy/zentinel-agent-bot-management/releases).
@@ -151,6 +159,7 @@ validates it and does not apply it, and Zentinel 0.6.50 does not forward an
 | `--bad-patterns` | `data/bad_patterns.json` | Bad User-Agent patterns database. Built-in list if the file does not exist. |
 | `--json-logs` | off | Log as JSON. |
 | `--log-level` | `info` | `trace`, `debug`, `info`, `warn` or `error`. `RUST_LOG` is also honored. |
+| `-V`, `--version` | | Print `zentinel-bot-management-agent <version>` and exit. |
 
 A minimal file:
 
@@ -291,6 +300,38 @@ cargo fmt --all --check
 
 Needs `protoc` (CI installs `protobuf-compiler`) and stable Rust (CI uses
 `dtolnay/rust-toolchain@stable`).
+
+## Releases and smoke test
+
+Releases go through the shared agent pipeline
+([`zentinelproxy/.github`](https://github.com/zentinelproxy/.github/tree/main/agent-smoke)):
+pushing a tag `vX.Y.Z` that matches `Cargo.toml` builds `zentinel-bot-management-agent` with
+`--locked` for `linux-x86_64`, `linux-aarch64` and `darwin-aarch64`, checks
+that `zentinel-bot-management-agent --version` prints `zentinel-bot-management-agent X.Y.Z`, runs
+[`scripts/smoke-test.sh`](scripts/smoke-test.sh) behind the latest Zentinel
+release on every platform, and only then publishes the tarballs
+`zentinel bundle install` downloads. CI runs the same pipeline on
+`linux-x86_64` for every push and pull request.
+
+The smoke test runs the release binary behind a real Zentinel with the agent,
+filter and route all `failure-mode "closed"`, over the Unix socket (the
+transport `zentinel bundle install` uses) and gRPC, without the `data/` files (the built-in bot lists). It checks that a
+request with browser headers is forwarded, that a DuckDuckBot User-Agent from
+outside DuckDuckBot's ranges gets `403` under the defaults, that with
+`block_threshold: 70` the sqlmap, nikto and masscan User-Agents get `403`
+without reaching the upstream (under the default threshold of 80 they score
+about 74 and only get a challenge, which Zentinel treats as allow), and that
+the request is refused once the agent is stopped (so the agent really is on
+the request path).
+
+Run it locally:
+
+```bash
+gh release download 26.10_7 --repo zentinelproxy/zentinel --pattern 'zentinel-26.10_7-darwin-arm64.tar.gz*'
+shasum -a 256 -c zentinel-26.10_7-darwin-arm64.tar.gz.sha256 && tar xzf zentinel-26.10_7-darwin-arm64.tar.gz
+cargo build --release --locked
+AGENT_SMOKE=../.github/agent-smoke/smoke.py scripts/smoke-test.sh target/release/zentinel-bot-management-agent ./zentinel
+```
 
 ## Related
 
