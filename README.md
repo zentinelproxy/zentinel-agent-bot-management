@@ -28,7 +28,8 @@ while letting real browsers and verified crawlers through. Four detectors each
 produce a score from 0 to 100; a weighted sum gives the request's bot score,
 which is compared to two thresholds: at or below `allow_threshold` the request
 passes, at or above `block_threshold` it gets a `403`, and in between the agent
-returns a challenge decision (which Zentinel 0.6.50 does not act on yet, see
+returns a challenge decision, which Zentinel 26.10_8 and later answer with a
+`403` and releases up to 26.10_7 proxied as if allowed (see
 [How it works](#how-it-works)). A Googlebot or Bingbot User-Agent from an
 address that fails IP-range and reverse-DNS checks is blocked outright. If the
 agent is unreachable, the filter's `failure-mode` decides; the quick start
@@ -105,7 +106,7 @@ Downloads the release binary pinned in Zentinel's bundle lock and installs it as
 > 0.2.0`). Behind Zentinel 26.10_7 it refuses a request with ordinary browser
 > headers (`503`) and lets a fake DuckDuckBot through. Use `0.5.0` or later,
 > the first release built and smoke-tested by the shared release pipeline
-> (below).
+> (below); Zentinel 26.10_8's bundle lock pins `0.5.0`.
 
 ### Release binaries
 
@@ -145,10 +146,12 @@ The image runs as `nonroot`, so the mounted directory must be writable by it.
 ## Configuration
 
 The agent is configured with command-line flags and an optional YAML or JSON
-file (`--config`; `.yaml`/`.yml` is read as YAML, anything else as JSON). It
-also accepts configuration over the protocol (`on_configure`), but only
-validates it and does not apply it, and Zentinel 0.6.50 does not forward an
-`agent { config { ... } }` block, so set it here.
+file (`--config`; `.yaml`/`.yml` is read as YAML, anything else as JSON).
+Zentinel 26.10_8 and later send the agent block's `config { }` on every
+connection (releases up to 0.6.50 never did), but the agent only validates it
+(it must parse as the file's structure) and does not apply it, so set
+everything here. A block that does not parse is rejected, and the proxy then
+does not use the agent (its filters' `failure-mode` applies).
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -276,11 +279,17 @@ is always reported as `search_engine`, whatever its database entry says. A
 block returns `403` with `{"error": "access_denied", "reason": "bot_detected"}`.
 
 **Challenges are partial.** Between the thresholds the agent returns a
-challenge decision with a signed token in its parameters, and on later
-requests it allows any request whose cookie carries a valid token (adding
-`X-Bot-Challenge: passed`). Nothing serves a challenge page or sets the cookie,
-and Zentinel 0.6.50 treats a challenge decision as allow, so those requests
-reach the upstream unchanged.
+challenge decision whose parameters carry a signed `token`, the `cookie_name`
+and, for the JavaScript and CAPTCHA types, the `challenge_url` (a
+`difficulty` for proof of work), and on later requests it allows any request
+whose cookie carries a valid token (adding `X-Bot-Challenge: passed`).
+Nothing serves a challenge page or sets the cookie. Zentinel 26.10_8 and
+later fail a challenge decision closed: the request is never proxied, and
+because the parameters carry neither `www-authenticate` nor `body`, the
+client gets a `403` with the route's error page; the token and URL are logged
+by name only and never reach the client, so no client can pass the challenge.
+Releases up to 26.10_7 (0.6.50) treated a challenge decision as allow, so
+there those requests reach the upstream unchanged.
 
 The agent reports counters `bot_management_requests_total`,
 `_requests_allowed`, `_requests_blocked`, `_requests_challenged`,
@@ -320,15 +329,16 @@ request with browser headers is forwarded, that a DuckDuckBot User-Agent from
 outside DuckDuckBot's ranges gets `403` under the defaults, that with
 `block_threshold: 70` the sqlmap, nikto and masscan User-Agents get `403`
 without reaching the upstream (under the default threshold of 80 they score
-about 74 and only get a challenge, which Zentinel treats as allow), and that
+about 74 and get a challenge decision instead, which Zentinel 26.10_8 answers
+with `403` and 26.10_7 treated as allow), and that
 the request is refused once the agent is stopped (so the agent really is on
 the request path).
 
 Run it locally:
 
 ```bash
-gh release download 26.10_7 --repo zentinelproxy/zentinel --pattern 'zentinel-26.10_7-darwin-arm64.tar.gz*'
-shasum -a 256 -c zentinel-26.10_7-darwin-arm64.tar.gz.sha256 && tar xzf zentinel-26.10_7-darwin-arm64.tar.gz
+gh release download 26.10_8 --repo zentinelproxy/zentinel --pattern 'zentinel-26.10_8-darwin-arm64.tar.gz*'
+shasum -a 256 -c zentinel-26.10_8-darwin-arm64.tar.gz.sha256 && tar xzf zentinel-26.10_8-darwin-arm64.tar.gz
 cargo build --release --locked
 AGENT_SMOKE=../.github/agent-smoke/smoke.py scripts/smoke-test.sh target/release/zentinel-bot-management-agent ./zentinel
 ```
